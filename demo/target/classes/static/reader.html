@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>读者服务中心 - 图书馆</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-top: 56px; font-family: "Microsoft YaHei", sans-serif; }
+
+        /* 顶部导航栏 */
+        .navbar { position: fixed; top: 0; width: 100%; z-index: 1030; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+        /* 侧边栏样式 */
+        .sidebar { position: fixed; top: 56px; bottom: 0; left: 0; z-index: 1000; padding: 20px 0; background-color: #ffffff; width: 240px; border-right: 1px solid #dee2e6; }
+        .sidebar .nav-link { color: #495057; padding: 12px 20px; font-weight: 500; border-radius: 0; border-left: 4px solid transparent; transition: all 0.2s; }
+        .sidebar .nav-link:hover { background-color: #f8f9fa; color: #007bff; }
+        .sidebar .nav-link.active { color: #007bff; background-color: #e9ecef; border-left-color: #007bff; }
+        .sidebar i { width: 25px; text-align: center; margin-right: 10px; }
+
+        /* 右侧内容区域 */
+        .content-area { margin-left: 240px; padding: 30px; }
+        .section-card { border: none; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.05); background: white; margin-bottom: 20px; }
+        .card-header { background-color: white; border-bottom: 1px solid #f0f0f0; padding: 20px; border-radius: 10px 10px 0 0 !important; }
+        .card-title { margin: 0; font-weight: bold; color: #333; font-size: 1.1rem; }
+
+        /* 表格与标签 */
+        .table-hover tbody tr:hover { background-color: #f8f9fa; }
+        .category-tags .btn { margin-right: 8px; margin-bottom: 8px; border-radius: 20px; padding: 5px 15px; font-size: 0.85rem; }
+        .summary-box { background-color: #f8f9fa; border-left: 4px solid #198754; padding: 15px; color: #666; font-size: 0.95rem; line-height: 1.6; }
+
+        /* 状态徽章 */
+        .status-badge { font-size: 0.85rem; padding: 6px 12px; border-radius: 20px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-success">
+    <div class="container-fluid">
+        <a class="navbar-brand ms-3" href="#"><i class="fas fa-book-reader me-2"></i> 图书馆读者自助系统</a>
+        <div class="d-flex align-items-center me-4">
+            <span class="text-white me-3"><i class="fas fa-id-card me-1"></i> 卡号: <strong id="topCardId" class="text-warning">...</strong></span>
+            <button onclick="logout()" class="btn btn-outline-light btn-sm"><i class="fas fa-sign-out-alt"></i> 退出</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+        <nav id="sidebar" class="sidebar">
+            <ul class="nav flex-column nav-pills" id="readerTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="pill" href="#tab-search"><i class="fas fa-search"></i> 馆藏图书查询</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="pill" href="#tab-bookshelf" onclick="loadMyBooks()"><i class="fas fa-book"></i> 我的书架 (在借)</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="pill" href="#tab-borrow-fine" onclick="loadMyFines()"><i class="fas fa-barcode"></i> 自助借书与罚款</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="pill" href="#tab-recommend" onclick="loadMyRecommends()"><i class="fas fa-hand-holding-heart"></i> 图书荐购</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="pill" href="#tab-profile"><i class="fas fa-user-cog"></i> 个人中心</a>
+                </li>
+            </ul>
+        </nav>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 content-area">
+            <div class="tab-content">
+
+                <div class="tab-pane fade show active" id="tab-search">
+                    <div class="card section-card">
+                        <div class="card-header"><h5 class="card-title text-primary"><i class="fas fa-search me-2"></i>馆藏检索</h5></div>
+                        <div class="card-body">
+                            <div class="input-group mb-4">
+                                <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="输入书名、作者、ISBN或分类...">
+                                <button class="btn btn-primary px-4" onclick="searchBooks()"><i class="fas fa-search"></i> 搜索</button>
+                                <button class="btn btn-outline-secondary px-4" onclick="loadBooks()"><i class="fas fa-sync-alt"></i> 重置</button>
+                            </div>
+                            <div class="category-tags mb-3">
+                                <span class="text-muted me-2"><i class="fas fa-filter"></i> 快速筛选:</span>
+                                <button class="btn btn-outline-secondary" onclick="filterByCategory('')">全部</button>
+                                <button class="btn btn-outline-info" onclick="filterByCategory('计算机')">💻 计算机</button>
+                                <button class="btn btn-outline-warning" onclick="filterByCategory('历史')">📜 历史</button>
+                                <button class="btn btn-outline-success" onclick="filterByCategory('金融')">💰 金融</button>
+                                <button class="btn btn-outline-danger" onclick="filterByCategory('英语')">🅰️ 英语</button>
+                                <button class="btn btn-outline-primary" onclick="filterByCategory('数学')">📐 数学</button>
+                                <button class="btn btn-outline-dark" onclick="filterByCategory('文学')">📖 文学</button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle" id="bookTable">
+                                    <thead class="table-light"><tr><th>ISBN</th><th>书名</th><th>分类</th><th>作者</th><th>状态</th><th>操作</th></tr></thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-bookshelf">
+                    <div class="card section-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title text-success"><i class="fas fa-book me-2"></i>我的当前借阅</h5>
+                            <button onclick="loadMyBooks()" class="btn btn-sm btn-outline-success"><i class="fas fa-sync"></i> 刷新列表</button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped align-middle" id="borrowTable">
+                                <thead class="table-light"><tr><th>书名</th><th>借阅时间</th><th>应还日期</th><th>状态</th><th>操作</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                            <div id="emptyBookshelf" class="text-center text-muted py-5" style="display:none;">
+                                <i class="fas fa-book-open fa-3x mb-3"></i><br>暂无借阅记录，快去借几本书吧！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-borrow-fine">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card section-card h-100">
+                                <div class="card-header"><h5 class="card-title text-primary"><i class="fas fa-barcode me-2"></i>自助借书</h5></div>
+                                <div class="card-body text-center py-5">
+                                    <p class="text-muted mb-4">请将光标置于下方输入框，扫描图书条形码或手动输入 ISBN</p>
+                                    <div class="input-group input-group-lg mb-3">
+                                        <span class="input-group-text"><i class="fas fa-keyboard"></i></span>
+                                        <input type="text" id="borrowIsbn" class="form-control" placeholder="ISBN (例如: 978-001)">
+                                    </div>
+                                    <button onclick="borrowBook()" class="btn btn-primary w-100 btn-lg mb-3">确认借阅</button>
+                                    <div id="borrowResult" class="fw-bold mt-3"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card section-card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title text-danger"><i class="fas fa-exclamation-circle me-2"></i>待缴罚款</h5>
+                                    <button onclick="loadMyFines()" class="btn btn-sm btn-outline-danger"><i class="fas fa-sync"></i> 刷新</button>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table align-middle" id="fineTable">
+                                        <thead><tr><th>图书</th><th>金额</th><th>操作</th></tr></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                    <div id="emptyFines" class="text-center text-success py-4" style="display:none;">
+                                        <i class="fas fa-check-circle fa-2x mb-2"></i><br>信用良好，无待缴罚款
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-recommend">
+                    <div class="card section-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title text-info"><i class="fas fa-list-alt me-2"></i>我的荐购记录</h5>
+                            <button class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#recommendModal"><i class="fas fa-plus me-1"></i> 我要荐购</button>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-hover align-middle" id="recommendTable">
+                                <thead class="table-light"><tr><th>书名</th><th>ISBN</th><th>申请日期</th><th>状态</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="tab-profile">
+                    <div class="card section-card" style="max-width: 600px; margin: 0 auto;">
+                        <div class="card-header"><h5 class="card-title text-secondary"><i class="fas fa-user-shield me-2"></i>账号安全设置</h5></div>
+                        <div class="card-body p-4">
+                            <div class="mb-4 pb-3 border-bottom">
+                                <label class="form-label text-muted">当前登录卡号</label>
+                                <div class="fs-4 fw-bold text-dark" id="profileCardId"></div>
+                            </div>
+                            <h6 class="mb-3">修改登录密码</h6>
+                            <div class="mb-3">
+                                <label class="form-label">旧密码</label>
+                                <input type="password" id="oldPass" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">新密码</label>
+                                <input type="password" id="newPass" class="form-control">
+                            </div>
+                            <button class="btn btn-warning w-100" onclick="changePassword()"><i class="fas fa-save me-1"></i> 保存新密码</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="modal fade" id="bookDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">图书详情</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3"><strong>书名:</strong> <span id="detailTitle" class="fs-5"></span></div>
+                    <div class="col-md-6 mb-3"><strong>分类:</strong> <span id="detailCategory" class="badge bg-info text-dark"></span></div>
+                    <div class="col-md-6 mb-3"><strong>作者:</strong> <span id="detailAuthor"></span></div>
+                    <div class="col-md-6 mb-3"><strong>ISBN:</strong> <span id="detailIsbn"></span></div>
+                    <div class="col-md-6 mb-3"><strong>出版社:</strong> <span id="detailPublisher"></span></div>
+                    <div class="col-md-6 mb-3"><strong>价格:</strong> <span id="detailPrice" class="text-danger fw-bold"></span> 元</div>
+                    <div class="col-md-6 mb-3"><strong>状态:</strong> <span id="detailStatus"></span></div>
+                </div>
+                <hr><h6 class="fw-bold">内容摘要:</h6><div id="detailSummary" class="summary-box">暂无简介...</div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="recommendModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white"><h5 class="modal-title">📚 提交新书荐购</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label>书名 <span class="text-danger">*</span></label><input type="text" id="recTitle" class="form-control"></div>
+                <div class="mb-3"><label>ISBN <span class="text-danger">*</span></label><input type="text" id="recIsbn" class="form-control"></div>
+                <div class="mb-3"><label>作者</label><input type="text" id="recAuthor" class="form-control"></div>
+                <div class="mb-3"><label>出版社</label><input type="text" id="recPublisher" class="form-control"></div>
+                <div class="mb-3"><label>参考价格</label><input type="number" id="recPrice" class="form-control"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitRecommend()">提交申请</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // --- 1. 基础认证与初始化 ---
+    const currentCardId = localStorage.getItem('cardId');
+    if (localStorage.getItem('role') !== 'reader' || !currentCardId) {
+        alert("⛔ 登录已过期，请重新登录");
+        window.location.href = 'login.html';
+    }
+
+    document.getElementById('topCardId').innerText = currentCardId;
+    document.getElementById('profileCardId').innerText = currentCardId;
+
+    let currentBooksList = [];
+    const bookDetailModal = new bootstrap.Modal(document.getElementById('bookDetailModal'));
+
+    function logout() {
+        if(confirm("确定要退出登录吗？")) {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+    }
+
+    // --- 2. 馆藏查询模块 ---
+    function filterByCategory(c) { document.getElementById('searchInput').value = c; searchBooks(); }
+    async function searchBooks() { const k = document.getElementById('searchInput').value; renderBookTable(k ? `/api/books/search?keyword=${k}` : '/api/books'); }
+    async function loadBooks() { document.getElementById('searchInput').value = ''; renderBookTable('/api/books'); }
+
+    async function renderBookTable(url) {
+        try {
+            const res = await fetch(url);
+            currentBooksList = await res.json();
+            const tbody = document.querySelector('#bookTable tbody');
+            tbody.innerHTML = '';
+
+            if(currentBooksList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">未找到相关图书</td></tr>';
+                return;
+            }
+
+            currentBooksList.forEach(book => {
+                const statusBadge = book.status === '在库'
+                    ? '<span class="badge bg-success status-badge">在库</span>'
+                    : '<span class="badge bg-danger status-badge">已借出</span>';
+
+                tbody.innerHTML += `
+                    <tr onclick="showBookDetail('${book.isbn}')" style="cursor:pointer">
+                        <td>${book.isbn}</td>
+                        <td class="fw-bold">${book.title}</td>
+                        <td><span class="badge bg-secondary">${book.category||'其他'}</span></td>
+                        <td>${book.author||'-'}</td>
+                        <td>${statusBadge}</td>
+                        <td><button class="btn btn-sm btn-outline-primary">详情</button></td>
+                    </tr>`;
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    function showBookDetail(isbn) {
+        const b = currentBooksList.find(i=>i.isbn===isbn); if(!b) return;
+        document.getElementById('detailTitle').innerText = b.title;
+        document.getElementById('detailCategory').innerText = b.category||'-';
+        document.getElementById('detailAuthor').innerText = b.author;
+        document.getElementById('detailIsbn').innerText = b.isbn;
+        document.getElementById('detailPublisher').innerText = b.publisher;
+        document.getElementById('detailPrice').innerText = b.price;
+        document.getElementById('detailStatus').innerHTML = b.status === '在库' ? '<span class="text-success fw-bold">在库</span>' : '<span class="text-danger fw-bold">已借出</span>';
+        document.getElementById('detailSummary').innerText = b.summary || '暂无简介...';
+        bookDetailModal.show();
+    }
+
+    // --- 3. 我的书架模块 ---
+    async function loadMyBooks() {
+        const res = await fetch(`/api/reader/borrowings?cardId=${currentCardId}`);
+        const data = await res.json();
+        const tbody = document.querySelector('#borrowTable tbody');
+        const emptyDiv = document.getElementById('emptyBookshelf');
+
+        tbody.innerHTML = '';
+        if(data.length === 0) {
+            emptyDiv.style.display = 'block';
+        } else {
+            emptyDiv.style.display = 'none';
+            data.forEach(item => {
+                let statusHtml = '<span class="badge bg-success">正常</span>';
+                if (item.overdueDays > 0) statusHtml = `<span class="badge bg-danger">逾期 ${item.overdueDays} 天</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="fw-bold">${item.title}</td>
+                        <td>${item.borrowTime ? item.borrowTime.split('T')[0] : '-'}</td>
+                        <td class="${item.overdueDays > 0 ? 'text-danger fw-bold' : ''}">${item.dueTime ? item.dueTime.split('T')[0] : '-'}</td>
+                        <td>${statusHtml}</td>
+                        <td><button class="btn btn-sm btn-warning" onclick="returnBook(${item.id})">归还</button></td>
+                    </tr>`;
+            });
+        }
+    }
+
+    async function returnBook(id) {
+        if(confirm("确定要归还这本书吗?")) {
+            const res = await fetch('/api/reader/return', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({borrowId:id})
+            });
+            const data = await res.json();
+            alert(data.msg);
+            loadMyBooks(); // 刷新书架
+            loadMyFines(); // 刷新罚款（如果有）
+        }
+    }
+
+    // --- 4. 借阅与罚款模块 ---
+    async function borrowBook() {
+        const isbn = document.getElementById('borrowIsbn').value;
+        if(!isbn) return alert("请输入ISBN");
+
+        const resDiv = document.getElementById('borrowResult');
+        resDiv.innerText = "处理中..."; resDiv.className = "mt-3 text-muted";
+
+        try {
+            const res = await fetch('/api/borrow', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cardId: currentCardId, isbn })
+            });
+            const text = await res.text();
+            resDiv.innerText = text;
+            resDiv.className = text.includes("成功") ? "mt-3 text-success fw-bold" : "mt-3 text-danger fw-bold";
+            if(text.includes("成功")) {
+                document.getElementById('borrowIsbn').value = ''; // 清空输入
+                loadMyBooks(); // 刷新书架数据
+            }
+        } catch(e) { resDiv.innerText = "网络错误"; }
+    }
+
+    async function loadMyFines() {
+        const res = await fetch(`/api/reader/fines?cardId=${currentCardId}`);
+        const data = await res.json();
+        const tbody = document.querySelector('#fineTable tbody');
+        const emptyDiv = document.getElementById('emptyFines');
+
+        tbody.innerHTML = '';
+        if(data.length === 0) {
+            emptyDiv.style.display = 'block';
+        } else {
+            emptyDiv.style.display = 'none';
+            data.forEach(item => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.title}</td>
+                        <td class="text-danger fw-bold">￥${item.fineAmount}</td>
+                        <td><button class="btn btn-sm btn-danger" onclick="payFine(${item.id})">缴纳</button></td>
+                    </tr>`;
+            });
+        }
+    }
+
+    async function payFine(id) {
+        if(confirm("确认缴纳此笔罚款？")) {
+            const res = await fetch('/api/reader/pay', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({borrowId:id})
+            });
+            const data = await res.json();
+            alert(data.msg);
+            loadMyFines();
+        }
+    }
+
+    // --- 5. 荐购模块 ---
+    async function loadMyRecommends() {
+        const res = await fetch(`/api/recommend/list?readerId=${currentCardId}`);
+        const data = await res.json();
+        const tbody = document.querySelector('#recommendTable tbody');
+        tbody.innerHTML = '';
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">暂无荐购记录</td></tr>';
+            return;
+        }
+
+        data.forEach(item => {
+            let badge = 'bg-secondary';
+            if(item.status.includes('批准') || item.status.includes('入库')) badge = 'bg-success';
+            if(item.status.includes('驳回')) badge = 'bg-danger';
+
+            tbody.innerHTML += `
+            <tr>
+                <td class="fw-bold">${item.title}</td>
+                <td>${item.isbn}</td>
+                <td>${item.requestDate.split('T')[0]}</td>
+                <td><span class="badge ${badge}">${item.status}</span></td>
+            </tr>`;
+        });
+    }
+
+    async function submitRecommend() {
+        const body = {
+            title: document.getElementById('recTitle').value,
+            isbn: document.getElementById('recIsbn').value,
+            author: document.getElementById('recAuthor').value,
+            publisher: document.getElementById('recPublisher').value,
+            price: document.getElementById('recPrice').value || 0,
+            readerId: currentCardId
+        };
+        if(!body.title || !body.isbn) return alert("书名和ISBN必填");
+
+        const res = await fetch('/api/recommend/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        alert(data.msg);
+        if(data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('recommendModal')).hide();
+            loadMyRecommends();
+            // 清空表单
+            document.querySelectorAll('#recommendModal input').forEach(input => input.value = '');
+        }
+    }
+
+    // --- 6. 个人中心模块 ---
+    async function changePassword() {
+        const oldPass = document.getElementById('oldPass').value;
+        const newPass = document.getElementById('newPass').value;
+        if (!oldPass || !newPass) return alert("请填写完整密码信息");
+
+        try {
+            const res = await fetch('/api/reader/password', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ cardId: currentCardId, oldPass, newPass })
+            });
+            const data = await res.json();
+            alert(data.msg);
+            if(data.success) {
+                document.getElementById('oldPass').value = '';
+                document.getElementById('newPass').value = '';
+            }
+        } catch(e) { alert("网络错误"); }
+    }
+
+    // 初始化加载
+    document.addEventListener('DOMContentLoaded', () => {
+        loadBooks();
+    });
+</script>
+</body>
+</html>

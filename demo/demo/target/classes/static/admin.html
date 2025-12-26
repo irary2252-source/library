@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>管理系统 - 图书馆</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; padding-top: 56px; font-family: "Microsoft YaHei", sans-serif; }
+    .navbar { position: fixed; top: 0; width: 100%; z-index: 1030; }
+    .sidebar { position: fixed; top: 56px; bottom: 0; left: 0; z-index: 1000; padding: 15px 0; background-color: #343a40; color: white; width: 220px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+    .sidebar .nav-link { color: #f8f9fa; padding: 10px 15px; border-left: 3px solid transparent; transition: all 0.2s; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background-color: #495057; border-left-color: #007bff; font-weight: bold; }
+    .content-area { margin-left: 220px; padding: 25px; }
+    .section-card { border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .card-title { font-weight: bold; color: #007bff; }
+    .summary-box { background-color: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; color: #555; }
+    tr.book-row:hover { background-color: #f1f1f1; cursor: pointer; }
+    .config-table-container { max-height: 350px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+    .config-table-container thead th { position: sticky; top: 0; background: #343a40; color: white; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand ms-3" href="#"><i class="fas fa-university"></i> 图书馆管理系统</a>
+    <div class="d-flex align-items-center me-3">
+      <span class="text-light me-3">管理员: <strong class="text-warning">admin</strong></span>
+      <button class="btn btn-outline-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#adminPassModal"><i class="fas fa-key"></i> 修改密码</button>
+      <button onclick="logout()" class="btn btn-outline-danger btn-sm"><i class="fas fa-sign-out-alt"></i> 退出</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid">
+  <div class="row">
+    <nav id="sidebar" class="sidebar">
+      <div class="position-sticky">
+        <ul class="nav flex-column nav-pills" id="adminTabs">
+          <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#tab-query"><i class="fas fa-search me-2"></i> 馆藏图书查询</a></li>
+          <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-rec"><i class="fas fa-gavel me-2"></i> 荐购审核</a></li>
+          <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-add-book"><i class="fas fa-book me-2"></i> 图书登记 (入库)</a></li>
+          <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-reader-reg"><i class="fas fa-user-plus me-2"></i> 读者登记 (办证)</a></li>
+          <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-operation"><i class="fas fa-exchange-alt me-2"></i> 借还与注销</a></li>
+          <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tab-config" id="configTabLink"><i class="fas fa-cogs me-2"></i> 系统参数设置</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="col-md-9 ms-sm-auto col-lg-10 content-area">
+      <div class="tab-content">
+
+        <div class="tab-pane fade show active" id="tab-query">
+          <div class="card section-card">
+            <div class="card-header bg-white"><h4 class="card-title text-secondary"><i class="fas fa-search me-2"></i> 馆藏图书查询与管理</h4></div>
+            <div class="card-body">
+              <div class="input-group mb-3">
+                <input type="text" id="searchInput" class="form-control" placeholder="输入书名、ISBN 或作者...">
+                <button class="btn btn-outline-secondary" onclick="searchBooks()">🔍 搜索</button>
+                <button class="btn btn-outline-secondary" onclick="loadBooks()">🔄 刷新列表</button>
+              </div>
+              <div class="category-tags mb-3">
+                <span class="text-muted me-2"><i class="fas fa-filter"></i> 快速筛选:</span>
+                <button class="btn btn-outline-secondary btn-sm" onclick="filterByCategory('')">全部</button>
+                <button class="btn btn-outline-info btn-sm" onclick="filterByCategory('计算机')">💻 计算机</button>
+                <button class="btn btn-outline-warning btn-sm" onclick="filterByCategory('历史')">📜 历史</button>
+                <button class="btn btn-outline-success btn-sm" onclick="filterByCategory('金融')">💰 金融</button>
+                <button class="btn btn-outline-danger btn-sm" onclick="filterByCategory('英语')">🅰️ 英语</button>
+                <button class="btn btn-outline-primary btn-sm" onclick="filterByCategory('数学')">📐 数学</button>
+                <button class="btn btn-outline-dark btn-sm" onclick="filterByCategory('文学')">📖 文学</button>
+              </div>
+              <table class="table table-hover align-middle" id="bookTable">
+                <thead class="table-light"><tr><th>ISBN</th><th>书名</th><th>分类</th><th>作者</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-rec">
+          <div class="card section-card">
+            <div class="card-header bg-white"><h4 class="card-title" style="color:#6610f2"><i class="fas fa-gavel me-2"></i> 荐购审核</h4></div>
+            <div class="card-body">
+              <div class="d-flex justify-content-end mb-3">
+                <button onclick="loadRecommends()" class="btn btn-sm btn-outline-primary"><i class="fas fa-sync"></i> 刷新待审核列表</button>
+              </div>
+              <table class="table table-hover align-middle" id="recTable">
+                <thead class="table-light"><tr><th>ISBN</th><th>书名</th><th>推荐人</th><th>价格</th><th>操作</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-add-book">
+          <div class="card section-card">
+            <div class="card-header bg-white"><h4 class="card-title text-success"><i class="fas fa-book me-2"></i> 图书登记 (入库)</h4></div>
+            <div class="card-body">
+              <div class="row g-3 mb-3">
+                <div class="col-md-3"><label class="form-label fw-bold">书号 (ISBN)</label><input type="text" id="addBookIsbn" class="form-control" placeholder="978-001"></div>
+                <div class="col-md-3"><label class="form-label fw-bold">书名</label><input type="text" id="addBookTitle" class="form-control" placeholder="例如: 数据库原理"></div>
+                <div class="col-md-3"><label class="form-label fw-bold">分类</label>
+                  <select id="addBookCategory" class="form-select">
+                    <option value="计算机">💻 计算机</option><option value="历史">📜 历史</option><option value="英语">🅰️ 英语</option>
+                    <option value="数学">📐 数学</option><option value="金融">💰 金融</option><option value="文学">📖 文学</option><option value="其他">📦 其他</option>
+                  </select>
+                </div>
+                <div class="col-md-3"><label class="form-label fw-bold">作者</label><input type="text" id="addBookAuthor" class="form-control"></div>
+              </div>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-3"><label class="form-label fw-bold">价格</label><input type="number" id="addBookPrice" class="form-control"></div>
+                <div class="col-md-3"><label class="form-label fw-bold">出版社</label><input type="text" id="addBookPublisher" class="form-control"></div>
+                <div class="col-md-4"><label class="form-label fw-bold">摘要</label><textarea id="addBookSummary" class="form-control" rows="1" placeholder="简介..."></textarea></div>
+                <div class="col-md-2"><button onclick="addBook()" class="btn btn-success w-100"><i class="fas fa-plus"></i> 添加图书</button></div>
+              </div>
+              <span id="addBookResult" class="result-msg"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-reader-reg">
+          <div class="card section-card">
+            <div class="card-header bg-white"><h4 class="card-title text-info"><i class="fas fa-user-plus me-2"></i>读者登记 (办证)</h4></div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-2"><input type="text" id="addReaderId" class="form-control" placeholder="卡号"></div>
+                <div class="col-md-2"><input type="text" id="addReaderName" class="form-control" placeholder="姓名"></div>
+                <div class="col-md-2"><input type="text" id="addReaderPass" class="form-control" placeholder="密码 (默认123456)"></div>
+                <div class="col-md-2"><select id="addReaderSex" class="form-select"><option value="男">男</option><option value="女">女</option></select></div>
+                <div class="col-md-2"><input type="text" id="addReaderDeptId" class="form-control" placeholder="单位"></div>
+                <div class="col-md-2"><select id="addReaderType" class="form-select" onchange="updateLevelOptions()"><option value="学生">学生</option><option value="教师">教师</option></select></div>
+                <div class="col-md-2"><select id="addReaderLevel" class="form-select"></select></div>
+                <div class="col-md-2"><button onclick="addReader()" class="btn btn-info text-white w-100">注册</button></div>
+              </div>
+              <span id="addReaderResult" class="result-msg"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-operation">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card section-card">
+                <div class="card-header bg-white"><h4 class="card-title" style="color:#6f42c1"><i class="fas fa-user-slash me-2"></i>读者注销</h4></div>
+                <div class="card-body">
+                  <div class="input-group">
+                    <input type="text" id="cancelCardId" class="form-control" placeholder="输入卡号">
+                    <button onclick="cancelReader()" class="btn btn-danger">注销</button>
+                  </div>
+                  <span id="cancelResult" class="result-msg"></span>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card section-card">
+                <div class="card-header bg-white"><h4 class="card-title text-danger"><i class="fas fa-undo me-2"></i>还书办理 (柜台)</h4></div>
+                <div class="card-body">
+                  <div class="input-group">
+                    <input type="text" id="returnIsbn" class="form-control" placeholder="输入图书 ISBN">
+                    <button onclick="returnBook()" class="btn btn-primary">确认归还</button>
+                  </div>
+                  <span id="returnResult" class="result-msg"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-config">
+          <div class="card section-card">
+            <div class="card-header bg-white"><h4 class="card-title text-warning text-dark"><i class="fas fa-cogs me-2"></i>系统参数设置</h4></div>
+            <div class="card-body">
+              <div class="mb-4">
+                <h6>罚款参数</h6>
+                <div class="row align-items-center">
+                  <div class="col-auto"><label class="col-form-label">罚款(元/天):</label></div>
+                  <div class="col-auto"><input type="number" id="configValue" class="form-control" placeholder="0.5"></div>
+                  <div class="col-auto"><button onclick="updateConfig()" class="btn btn-warning">💾 保存设置</button></div>
+                </div>
+                <span id="configResult" class="result-msg"></span>
+              </div>
+              <h6 class="mt-4">当前借阅规则管理 (点击修改即可保存)</h6>
+              <div class="config-table-container">
+                <table class="table table-striped table-bordered mb-0" id="ruleTable">
+                  <thead class="table-dark"><tr><th>读者类型/级别</th><th>最大借阅数量</th><th>最长借阅天数</th><th>操作</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <span id="ruleLoadStatus" class="result-msg"></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal fade" id="editRuleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="fas fa-edit"></i> 修改借阅规则</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <h6 id="ruleTitle" class="mb-3 fw-bold">正在修改：本科生</h6>
+        <div class="mb-3">
+          <label class="form-label">最大借阅数量 (本)</label>
+          <input type="number" id="editRuleMax" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">最长借阅天数 (天)</label>
+          <input type="number" id="editRuleDays" class="form-control">
+        </div>
+        <input type="hidden" id="editRuleMaxKey">
+        <input type="hidden" id="editRuleDaysKey">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" onclick="submitEditRule()">💾 保存修改</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editBookModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark"><h5 class="modal-title"><i class="fas fa-edit"></i> 修改图书信息</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6"><label class="form-label fw-bold">书号 (ISBN) - 不可修改</label><input type="text" id="editBookIsbn" class="form-control" readonly style="background-color: #e9ecef;"></div>
+          <div class="col-md-6"><label class="form-label fw-bold">书名</label><input type="text" id="editBookTitle" class="form-control"></div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6"><label class="form-label fw-bold">分类</label>
+            <select id="editBookCategory" class="form-select">
+              <option value="计算机">💻 计算机</option><option value="历史">📜 历史</option><option value="英语">🅰️ 英语</option>
+              <option value="数学">📐 数学</option><option value="金融">💰 金融</option><option value="文学">📖 文学</option><option value="其他">📦 其他</option>
+            </select>
+          </div>
+          <div class="col-md-6"><label class="form-label fw-bold">作者</label><input type="text" id="editBookAuthor" class="form-control"></div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6"><label class="form-label fw-bold">价格</label><input type="number" id="editBookPrice" class="form-control"></div>
+          <div class="col-md-6"><label class="form-label fw-bold">出版社</label><input type="text" id="editBookPublisher" class="form-control"></div>
+        </div>
+        <div class="mb-3"><label class="form-label fw-bold">摘要</label><textarea id="editBookSummary" class="form-control" rows="3"></textarea></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-primary" onclick="submitEditBook()">💾 保存修改</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="bookDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white"><h5 class="modal-title">图书详情信息</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6 mb-3"><strong>书名:</strong> <span id="detailTitle" class="fs-5"></span></div>
+          <div class="col-md-6 mb-3"><strong>分类:</strong> <span id="detailCategory" class="badge bg-info text-dark"></span></div>
+          <div class="col-md-6 mb-3"><strong>作者:</strong> <span id="detailAuthor"></span></div>
+          <div class="col-md-6 mb-3"><strong>ISBN:</strong> <span id="detailIsbn"></span></div>
+          <div class="col-md-6 mb-3"><strong>出版社:</strong> <span id="detailPublisher"></span></div>
+          <div class="col-md-6 mb-3"><strong>价格:</strong> <span id="detailPrice" class="text-danger fw-bold"></span> 元</div>
+          <div class="col-md-6 mb-3"><strong>状态:</strong> <span id="detailStatus"></span></div>
+        </div>
+        <hr><h6 class="fw-bold">内容摘要:</h6><div id="detailSummary" class="summary-box">暂无简介...</div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="adminPassModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">管理员密码修改</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label>旧密码</label><input type="password" id="adminOldPass" class="form-control"></div>
+        <div class="mb-3"><label>新密码</label><input type="password" id="adminNewPass" class="form-control"></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-primary" onclick="changeAdminPassword()">确认修改</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  if (localStorage.getItem('role') !== 'admin') {
+    alert("⛔ 非法访问！请先登录管理员账号。"); window.location.href = 'login.html';
+  }
+  let currentBooksList = [];
+  const CONFIG_KEYS = [
+    { type: "本科生", key: "undergrad", defaultMax: '5', defaultDays: '30' },
+    { type: "研究生", key: "grad", defaultMax: '10', defaultDays: '60' },
+    { type: "博士生", key: "phd", defaultMax: '15', defaultDays: '90' },
+    { type: "教师", key: "teacher", defaultMax: '20', defaultDays: '90' }
+  ];
+
+  function logout() {
+    if(confirm("确定要退出登录吗？")) { localStorage.clear(); window.location.href = 'login.html'; }
+  }
+
+  // --- 配置获取 ---
+  async function getConfigValue(key) {
+    try {
+      const res = await fetch(`/api/config/value?key=${key}`);
+      const text = await res.text();
+      return (text === "null" || text === "") ? null : text;
+    } catch (e) { return null; }
+  }
+
+  // --- Tab 6: 系统参数设置逻辑 ---
+  async function loadConfig() {
+    const rate = await getConfigValue('overdue_fine_rate'); document.getElementById('configValue').value = rate || '1.00';
+    const tbody = document.querySelector('#ruleTable tbody'); tbody.innerHTML = '';
+    document.getElementById('ruleLoadStatus').innerText = "加载中...";
+    try {
+      for (const k of CONFIG_KEYS) {
+        const maxKey = k.key + '_max_borrow';
+        const daysKey = k.key + '_borrow_days';
+        const max = await getConfigValue(maxKey) || k.defaultMax;
+        const days = await getConfigValue(daysKey) || k.defaultDays;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+                <td>${k.type}</td>
+                <td><span id="view_max_${k.key}">${max}</span> 本</td>
+                <td><span id="view_days_${k.key}">${days}</span> 天</td>
+                <td><button class="btn btn-sm btn-warning" onclick="openEditRule('${k.type}', '${maxKey}', '${daysKey}', '${max}', '${days}')"><i class="fas fa-edit"></i> 修改</button></td>
+              `;
+        tbody.appendChild(tr);
+      }
+      document.getElementById('ruleLoadStatus').innerText = "✅ 规则加载完成";
+    } catch (e) { document.getElementById('ruleLoadStatus').innerText = "❌ 规则加载失败"; }
+  }
+  document.getElementById('configTabLink').addEventListener('click', loadConfig);
+
+  // ✅ [新增] 打开借阅规则修改模态框
+  const editRuleModal = new bootstrap.Modal(document.getElementById('editRuleModal'));
+  function openEditRule(type, maxKey, daysKey, currentMax, currentDays) {
+    document.getElementById('ruleTitle').innerText = "正在修改：" + type;
+    document.getElementById('editRuleMaxKey').value = maxKey;
+    document.getElementById('editRuleDaysKey').value = daysKey;
+    document.getElementById('editRuleMax').value = currentMax;
+    document.getElementById('editRuleDays').value = currentDays;
+    editRuleModal.show();
+  }
+
+  // ✅ [新增] 提交借阅规则修改
+  async function submitEditRule() {
+    const maxKey = document.getElementById('editRuleMaxKey').value;
+    const daysKey = document.getElementById('editRuleDaysKey').value;
+    const newValMax = document.getElementById('editRuleMax').value;
+    const newValDays = document.getElementById('editRuleDays').value;
+
+    if (!newValMax || !newValDays) return alert("请填写完整数值");
+
+    // 串行更新两个值
+    await apiCall('/api/config/update', { key: maxKey, value: newValMax });
+    await apiCall('/api/config/update', { key: daysKey, value: newValDays });
+
+    alert("✅ 规则修改成功！");
+    editRuleModal.hide();
+    loadConfig(); // 刷新表格
+  }
+
+  // --- 业务操作函数 ---
+  async function apiCall(url, body, resultId, callback) {
+    if(resultId) { document.getElementById(resultId).innerText = "处理中..."; document.getElementById(resultId).className = "result-msg"; }
+    try {
+      const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+      const data = await res.json();
+      if(data.success || !data.error) {
+        if(resultId) { document.getElementById(resultId).innerText = "✅ " + (data.msg || "操作成功"); document.getElementById(resultId).className = "result-msg success"; }
+        if(url.includes('/book')) loadBooks();
+        if(callback) callback();
+      } else {
+        if(resultId) { document.getElementById(resultId).innerText = "❌ " + (data.error || data.msg); document.getElementById(resultId).className = "result-msg error"; }
+      }
+    } catch (e) {
+      if(resultId) { document.getElementById(resultId).innerText = "❌ 网络错误"; document.getElementById(resultId).className = "result-msg error"; }
+    }
+  }
+
+  function addBook() {
+    apiCall('/api/book', {
+      isbn: document.getElementById('addBookIsbn').value, title: document.getElementById('addBookTitle').value,
+      category: document.getElementById('addBookCategory').value, author: document.getElementById('addBookAuthor').value,
+      price: document.getElementById('addBookPrice').value, publisher: document.getElementById('addBookPublisher').value,
+      summary: document.getElementById('addBookSummary').value, status: "在库"
+    }, 'addBookResult');
+  }
+  function addReader() {
+    apiCall('/api/reader', {
+      cardId: document.getElementById('addReaderId').value, name: document.getElementById('addReaderName').value,
+      password: document.getElementById('addReaderPass').value, sex: document.getElementById('addReaderSex').value,
+      deptId: document.getElementById('addReaderDeptId').value, type: document.getElementById('addReaderType').value,
+      level: document.getElementById('addReaderLevel').value, isActive: true
+    }, 'addReaderResult');
+  }
+  function cancelReader() { if(confirm("确定注销?")) apiCall('/api/reader/cancel', { cardId: document.getElementById('cancelCardId').value }, 'cancelResult'); }
+  function returnBook() { apiCall('/api/return', { isbn: document.getElementById('returnIsbn').value }, 'returnResult'); }
+  function updateConfig() { apiCall('/api/config/update', { key: 'overdue_fine_rate', value: document.getElementById('configValue').value }, 'configResult'); }
+
+  // --- 图书管理 & 编辑 ---
+  function filterByCategory(category) { document.getElementById('searchInput').value = category; searchBooks(); }
+  async function searchBooks() { const k = document.getElementById('searchInput').value; renderBookTable(k ? `/api/books/search?keyword=${k}` : '/api/books'); }
+  async function loadBooks() { document.getElementById('searchInput').value = ''; renderBookTable('/api/books'); }
+  async function renderBookTable(url) {
+    try {
+      const res = await fetch(url); currentBooksList = await res.json();
+      const tbody = document.querySelector('#bookTable tbody'); tbody.innerHTML = '';
+      if(currentBooksList.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">未找到图书</td></tr>'; return; }
+      currentBooksList.forEach(book => {
+        const statusColor = book.status === '在库' ? 'text-success' : 'text-danger';
+        tbody.innerHTML += `<tr class="book-row">
+                  <td onclick="showBookDetail('${book.isbn}')">${book.isbn}</td><td onclick="showBookDetail('${book.isbn}')">${book.title}</td>
+                  <td onclick="showBookDetail('${book.isbn}')"><span class="badge bg-secondary">${book.category||'其他'}</span></td>
+                  <td onclick="showBookDetail('${book.isbn}')">${book.author||'-'}</td><td onclick="showBookDetail('${book.isbn}')" class="${statusColor} fw-bold">${book.status}</td>
+                  <td><button class="btn btn-sm btn-outline-primary me-1" onclick="showBookDetail('${book.isbn}')">详情</button>
+                      <button class="btn btn-sm btn-warning text-dark" onclick="openEditModal('${book.isbn}')"><i class="fas fa-edit"></i> 修改</button></td></tr>`;
+      });
+    } catch(e) {}
+  }
+  const editModal = new bootstrap.Modal(document.getElementById('editBookModal'));
+  function openEditModal(isbn) {
+    const book = currentBooksList.find(b => b.isbn === isbn); if (!book) return;
+    document.getElementById('editBookIsbn').value = book.isbn; document.getElementById('editBookTitle').value = book.title;
+    document.getElementById('editBookCategory').value = book.category || '其他'; document.getElementById('editBookAuthor').value = book.author;
+    document.getElementById('editBookPrice').value = book.price; document.getElementById('editBookPublisher').value = book.publisher;
+    document.getElementById('editBookSummary').value = book.summary; editModal.show();
+  }
+  function submitEditBook() {
+    apiCall('/api/book', {
+      isbn: document.getElementById('editBookIsbn').value, title: document.getElementById('editBookTitle').value,
+      category: document.getElementById('editBookCategory').value, author: document.getElementById('editBookAuthor').value,
+      price: document.getElementById('editBookPrice').value, publisher: document.getElementById('editBookPublisher').value,
+      summary: document.getElementById('editBookSummary').value, status: "在库"
+    }, null, () => { editModal.hide(); alert("✅ 修改成功！"); });
+  }
+  function showBookDetail(isbn) {
+    const b = currentBooksList.find(i => i.isbn === isbn); if (!b) return;
+    document.getElementById('detailTitle').innerText = b.title; document.getElementById('detailCategory').innerText = b.category||'其他';
+    document.getElementById('detailAuthor').innerText = b.author; document.getElementById('detailIsbn').innerText = b.isbn;
+    document.getElementById('detailPublisher').innerText = b.publisher; document.getElementById('detailPrice').innerText = b.price;
+    document.getElementById('detailStatus').innerText = b.status; document.getElementById('detailSummary').innerText = b.summary || '暂无';
+    new bootstrap.Modal(document.getElementById('bookDetailModal')).show();
+  }
+
+  // --- 荐购 ---
+  async function loadRecommends() {
+    const res = await fetch('/api/recommend/list'); const data = await res.json();
+    const tbody = document.querySelector('#recTable tbody'); tbody.innerHTML = '';
+    if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">暂无待审核请求</td></tr>'; return; }
+    data.forEach(item => {
+      tbody.innerHTML += `<tr><td>${item.isbn}</td><td>${item.title}</td><td>${item.readerId}</td><td>${item.price||'-'}</td>
+              <td><button class="btn btn-sm btn-success me-1" onclick="handleRec(${item.id}, true)">批准</button><button class="btn btn-sm btn-danger" onclick="handleRec(${item.id}, false)">驳回</button></td></tr>`;
+    });
+  }
+  async function handleRec(id, approved) {
+    if(!confirm(approved ? "确定批准并自动入库吗？" : "确定驳回吗？")) return;
+    const res = await fetch('/api/recommend/handle', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id, approved }) });
+    const data = await res.json(); alert(data.msg); loadRecommends(); loadBooks();
+  }
+
+  // 初始化
+  function updateLevelOptions() {
+    const type = document.getElementById('addReaderType').value; const levelSelect = document.getElementById('addReaderLevel');
+    levelSelect.innerHTML = '';
+    let options = type === '学生' ? ['本科生', '研究生', '博士生'] : ['副教授', '正教授', '讲师'];
+    options.forEach(opt => levelSelect.add(new Option(opt, opt)));
+  }
+  updateLevelOptions();
+  async function changeAdminPassword() {
+    const oldPass = document.getElementById('adminOldPass').value; const newPass = document.getElementById('adminNewPass').value;
+    if (!oldPass || !newPass) return alert("请填写完整");
+    const res = await fetch('/api/admin/password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username: 'admin', oldPass, newPass }) });
+    const data = await res.json(); alert(data.msg); if(data.success) logout();
+  }
+  document.addEventListener('DOMContentLoaded', () => { loadBooks(); loadRecommends(); });
+</script>
+</body>
+</html>

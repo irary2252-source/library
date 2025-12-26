@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>系统登录 - 图书管理系统</title>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%); margin: 0; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); width: 350px; text-align: center; }
+        h1 { margin-bottom: 30px; color: #333; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        .error-msg { color: red; font-size: 14px; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <h1>📚 图书管理系统</h1>
+
+    <div id="unifiedForm">
+        <div class="form-group">
+            <label>账号/借书证号</label>
+            <input type="text" id="loginIdentifier" placeholder="请输入管理员账号或读者卡号">
+        </div>
+        <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="loginPass" placeholder="请输入密码">
+        </div>
+        <button onclick="doLogin()">登录系统</button>
+    </div>
+
+    <div id="errorMsg" class="error-msg"></div>
+</div>
+
+<script>
+    async function doLogin() {
+        const identifier = document.getElementById('loginIdentifier').value;
+        const password = document.getElementById('loginPass').value;
+        if(!identifier || !password) return showErr("请输入完整信息");
+
+        try {
+            // 调用新的统一登录 API: /api/login/unified
+            const res = await fetch('/api/login/unified', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ identifier, password })
+            });
+            const data = await res.json();
+
+            if(data.success) {
+                localStorage.setItem('role', data.role); // 记录角色
+
+                if (data.role === 'admin') {
+                    window.location.href = 'admin.html';   // 跳转到管理页
+                } else if (data.role === 'reader') {
+                    localStorage.setItem('cardId', data.id); // 记录卡号
+                    window.location.href = 'reader.html';   // 跳转到读者页
+                }
+            } else {
+                showErr(data.msg);
+            }
+        } catch(e) { showErr("网络错误"); }
+    }
+
+    function showErr(msg) {
+        const div = document.getElementById('errorMsg');
+        div.innerText = msg;
+        div.style.display = 'block';
+    }
+</script>
+</body>
+</html>
