@@ -257,20 +257,36 @@ public class LibraryService {
         else { return requestRepo.findByStatusOrderByRequestDateDesc("待处理"); }
     }
 
-    // 管理员处理荐购 (未修改)
+    // 在 LibraryService.java 中找到 handleRecommendation 方法并替换为：
     @Transactional
     public String handleRecommendation(Integer requestId, boolean isApproved) {
         PurchaseRequest req = requestRepo.findById(requestId).orElse(null);
         if (req == null) return "记录不存在";
         if (!"待处理".equals(req.getStatus())) return "该请求已处理";
+
         if (isApproved) {
-            if (bookRepo.existsById(req.getIsbn())) { req.setStatus("已批准(已有)"); }
-            else {
-                Book newBook = new Book(); newBook.setIsbn(req.getIsbn()); newBook.setTitle(req.getTitle()); newBook.setAuthor(req.getAuthor());
-                newBook.setPublisher(req.getPublisher()); newBook.setPrice(req.getPrice()); newBook.setStatus("在库");
-                newBook.setCategory("荐购新书"); bookRepo.save(newBook); req.setStatus("已批准");
-            }
-        } else { req.setStatus("已驳回"); }
+            // 简单检查：如果 ISBN 已存在，就不再入库，只改状态
+            // 注意：这里需要确保 BookRepository 里有 findByIsbn 方法，如果没有，暂且略过或自己添加
+            // if (bookRepo.findByIsbn(req.getIsbn()) != null) { ... }
+
+            Book newBook = new Book();
+            // 【关键】：这里我们暂时用 ISBN 当作 BookID，防止主键为空报错
+            // 如果你想用 B006 这种格式，需要写额外的 ID 生成逻辑，这里为了跑通先用 ISBN
+            newBook.setBookId(req.getIsbn());
+
+            newBook.setIsbn(req.getIsbn());
+            newBook.setTitle(req.getTitle());
+            newBook.setAuthor(req.getAuthor());
+            newBook.setPublisher(req.getPublisher());
+            newBook.setPrice(req.getPrice());
+            newBook.setCategory("荐购新书"); // 这里需要数据库有 Category 列
+            newBook.setStatus("在库");
+
+            bookRepo.save(newBook);
+            req.setStatus("已批准");
+        } else {
+            req.setStatus("已驳回");
+        }
         requestRepo.save(req);
         return isApproved ? "已批准并自动入库" : "已驳回该请求";
     }

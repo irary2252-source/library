@@ -8,12 +8,15 @@ import java.math.BigDecimal;
 public class Book {
     @Id
     @Column(name = "BookID")
-    private String isbn;
+    private String bookId; // 对应数据库 BookID (如 B001)
+
+    @Column(name = "ISBN")
+    private String isbn;   // 对应数据库 ISBN (如 9787...)
 
     @Column(name = "Title")
     private String title;
 
-    @Column(name = "Category") // ✅ 新增分类字段
+    @Column(name = "Category")
     private String category;
 
     @Column(name = "Author")
@@ -25,20 +28,19 @@ public class Book {
     @Column(name = "Publisher")
     private String publisher;
 
-    @Column(name = "Summary")
-    private String summary;
-
     @Column(name = "Status")
     private String status = "在库";
 
     // --- Getters and Setters ---
+    public String getBookId() { return bookId; }
+    public void setBookId(String bookId) { this.bookId = bookId; }
+
     public String getIsbn() { return isbn; }
     public void setIsbn(String isbn) { this.isbn = isbn; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
-    // ✅ 新增 Getter/Setter
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
 
@@ -50,9 +52,7 @@ public class Book {
 
     public String getPublisher() { return publisher; }
     public void setPublisher(String publisher) { this.publisher = publisher; }
-
-    public String getSummary() { return summary; }
-    public void setSummary(String summary) { this.summary = summary; }
+    
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
