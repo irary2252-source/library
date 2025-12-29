@@ -24,6 +24,9 @@ public class LibraryService {
     @Autowired private AdminRepository adminRepo;
     @Autowired private PurchaseRequestRepository requestRepo;
 
+    // ✅ 1. 新增：注入 FineRepository
+    @Autowired private FineRepository fineRepo;
+
     /**
      * 内部方法：检查管理员登录 (返回实体)
      */
@@ -39,9 +42,7 @@ public class LibraryService {
     }
 
     /**
-     * ✅ 统一登录逻辑 (新增)
-     * 尝试用 identifier/password 匹配 Admin 或 Reader
-     * 返回 Map<String, String> 包含 role, id
+     * 统一登录逻辑
      */
     public Map<String, String> unifiedLogin(String identifier, String password) {
         // 1. 尝试管理员登录
@@ -59,16 +60,8 @@ public class LibraryService {
         return Map.of("role", "none", "id", "");
     }
 
-    // =====================================================================
-    //  以下为原有业务逻辑（精简）
-    // =====================================================================
 
-    /**
-     * ⚠️ 原有的 loginAdmin 和 loginReader 现已由 unifiedLogin 取代，但我们保留其逻辑。
-     * 为了代码整洁，这里不再保留原来 boolean 返回值的 public 方法，仅保留其核心逻辑。
-     */
-
-    // 辅助方法：智能解析单位输入 (未修改)
+    // 辅助方法：智能解析单位输入
     public Integer resolveDeptId(String input) {
         if (input == null || input.trim().isEmpty()) { throw new RuntimeException("单位不能为空"); }
         try { int id = Integer.parseInt(input); if (deptRepo.existsById(id)) return id; } catch (NumberFormatException e) { }
@@ -77,7 +70,7 @@ public class LibraryService {
         throw new RuntimeException("单位不存在: " + input);
     }
 
-    // 创建读者 (未修改)
+    // 创建读者
     @Transactional
     public Reader createReader(Reader reader, String deptInput) {
         Integer finalDeptId = resolveDeptId(deptInput);
@@ -94,7 +87,7 @@ public class LibraryService {
         return readerRepo.save(reader);
     }
 
-    // 借书逻辑 (未修改)
+    // 借书逻辑
     @Transactional
     public String borrowBook(String cardId, String isbn) {
         Reader reader = readerRepo.findById(cardId).orElse(null);
@@ -115,7 +108,7 @@ public class LibraryService {
         return "借阅成功";
     }
 
-    // 注销读者 (未修改)
+    // 注销读者
     @Transactional
     public String cancelReader(String cardId) {
         Reader reader = readerRepo.findById(cardId).orElse(null);
@@ -129,7 +122,7 @@ public class LibraryService {
         return "读者 " + reader.getName() + " (" + cardId + ") 已成功注销";
     }
 
-    // 更新配置 (未修改)
+    // 更新配置
     @Transactional
     public String updateConfig(String key, String value) {
         SystemConfig config = configRepo.findById(key).orElse(new SystemConfig());
@@ -139,7 +132,6 @@ public class LibraryService {
         return "配置已更新";
     }
 
-    // 修改读者密码 (未修改)
     @Transactional
     public String updateReaderPassword(String cardId, String oldPass, String newPass) {
         Reader reader = readerRepo.findById(cardId).orElse(null);
@@ -149,7 +141,7 @@ public class LibraryService {
         return "密码修改成功，请重新登录";
     }
 
-    // 修改管理员密码 (未修改)
+    // 修改管理员密码
     @Transactional
     public String updateAdminPassword(String username, String oldPass, String newPass) {
         Admin admin = checkAdminLogin(username, oldPass);
@@ -158,7 +150,7 @@ public class LibraryService {
         return "密码修改成功，请重新登录";
     }
 
-    // 获取读者当前借阅列表 (未修改)
+    // 获取读者当前借阅列表
     public List<Map<String, Object>> getReaderBorrowings(String cardId) {
         List<Borrow> borrows = borrowRepo.findByCardIdAndReturnTimeIsNull(cardId);
         List<Map<String, Object>> result = new ArrayList<>();
@@ -171,7 +163,7 @@ public class LibraryService {
         return result;
     }
 
-    // 获取读者未缴纳罚款的记录 (未修改)
+    // 获取读者未缴纳罚款的记录
     public List<Map<String, Object>> getReaderFines(String cardId) {
         List<Borrow> borrows = borrowRepo.findUnpaidFines(cardId);
         List<Map<String, Object>> result = new ArrayList<>();
@@ -183,7 +175,7 @@ public class LibraryService {
         return result;
     }
 
-    // 读者自助还书 (未修改)
+    // 读者自助还书
     @Transactional
     public String returnBookById(Long borrowId) {
         Borrow borrow = borrowRepo.findById(borrowId).orElse(null);
@@ -192,7 +184,7 @@ public class LibraryService {
         return returnBookLogic(borrow);
     }
 
-    // 缴纳罚款 (未修改)
+    // 缴纳罚款
     @Transactional
     public String payFine(Long borrowId) {
         Borrow borrow = borrowRepo.findById(borrowId).orElse(null);
@@ -204,7 +196,7 @@ public class LibraryService {
         return "缴费成功！";
     }
 
-    // 管理员还书接口 (未修改)
+    // 管理员还书接口
     @Transactional
     public String returnBook(String isbn) {
         Borrow borrow = borrowRepo.findByIsbnAndReturnTimeIsNull(isbn);
@@ -213,37 +205,75 @@ public class LibraryService {
         if (borrow.getFineAmount() != null && borrow.getFineAmount().doubleValue() > 0) {
             result += " (⚠️ 注意：请向读者收取罚款 " + borrow.getFineAmount() + " 元)";
         }
+
         return result;
     }
 
-    // 核心还书逻辑 (未修改)
+    // ==========================================
+    // ✅ 2. 修改：核心还书逻辑 (加入生成罚款单功能)
+    // ==========================================
     private String returnBookLogic(Borrow borrow) {
         borrow.setReturnTime(LocalDateTime.now());
         Book book = bookRepo.findById(borrow.getIsbn()).orElse(null);
+
         long overdueDays = 0;
-        if (LocalDateTime.now().isAfter(borrow.getDueDate())) { overdueDays = Duration.between(borrow.getDueDate(), LocalDateTime.now()).toDays(); }
+        if (LocalDateTime.now().isAfter(borrow.getDueDate())) {
+            overdueDays = Duration.between(borrow.getDueDate(), LocalDateTime.now()).toDays();
+        }
         borrow.setOverdueDays((int) overdueDays);
+
         if (overdueDays > 0) {
+            // 计算罚金
             String fineRateStr = configRepo.getValue("overdue_fine_rate", "1.00");
             BigDecimal dailyFineRate = new BigDecimal(fineRateStr);
             BigDecimal fine = dailyFineRate.multiply(BigDecimal.valueOf(overdueDays));
-            if (book != null && book.getPrice() != null) { if (fine.compareTo(book.getPrice()) > 0) { fine = book.getPrice(); } }
+
+            // 罚金不能超过书价
+            if (book != null && book.getPrice() != null) {
+                if (fine.compareTo(book.getPrice()) > 0) { fine = book.getPrice(); }
+            }
+
+            // 更新借阅表状态
             borrow.setFineAmount(fine);
             borrow.setIsPaid(false);
+
+            // ============================================
+            // 🔥 关键修改：插入记录到 Fine 表
+            // ============================================
+            Fine fineRecord = new Fine();
+            // 注意：borrow.getId() 是 Long，Fine 定义 borrowId 是 Integer，需强转
+            fineRecord.setBorrowId(borrow.getId().intValue());
+            fineRecord.setCardId(borrow.getCardId());
+            fineRecord.setAmount(fine);
+            fineRecord.setIsPaid(false); // 默认未缴
+            fineRepo.save(fineRecord);   // 保存到数据库！
+
         } else {
             borrow.setFineAmount(BigDecimal.ZERO);
             borrow.setIsPaid(true);
         }
+
         borrowRepo.save(borrow);
+
+        // 恢复库存
         if (book != null) { book.setStatus("在库"); bookRepo.save(book); }
+
+        // 更新读者借阅数
         Reader reader = readerRepo.findById(borrow.getCardId()).orElse(null);
-        if (reader != null) { int current = reader.getCurrentBorrow() == null ? 1 : reader.getCurrentBorrow(); if (current > 0) { reader.setCurrentBorrow(current - 1); readerRepo.save(reader); } }
+        if (reader != null) {
+            int current = reader.getCurrentBorrow() == null ? 1 : reader.getCurrentBorrow();
+            if (current > 0) {
+                reader.setCurrentBorrow(current - 1);
+                readerRepo.save(reader);
+            }
+        }
+
         String msg = "归还成功";
         if (overdueDays > 0) { msg = "您已逾期 " + overdueDays + " 天，产生罚款 " + borrow.getFineAmount() + " 元"; }
         return msg;
     }
 
-    // 读者荐购功能 (未修改)
+    // 读者荐购功能
     @Transactional
     public String addRecommendation(PurchaseRequest req) {
         if (bookRepo.existsById(req.getIsbn())) { return "提交失败：馆内已有此书，无需荐购"; }
@@ -251,27 +281,61 @@ public class LibraryService {
         return "荐购提交成功，请等待管理员审核";
     }
 
-    // 获取荐购列表 (未修改)
+    // 获取荐购列表
     public List<PurchaseRequest> getRecommendations(String readerId) {
         if (readerId != null && !readerId.isEmpty()) { return requestRepo.findByReaderIdOrderByRequestDateDesc(readerId); }
         else { return requestRepo.findByStatusOrderByRequestDateDesc("待处理"); }
     }
 
-    // 管理员处理荐购 (未修改)
+    // 审批荐购
     @Transactional
     public String handleRecommendation(Integer requestId, boolean isApproved) {
         PurchaseRequest req = requestRepo.findById(requestId).orElse(null);
         if (req == null) return "记录不存在";
         if (!"待处理".equals(req.getStatus())) return "该请求已处理";
+
+        String message;
+
         if (isApproved) {
-            if (bookRepo.existsById(req.getIsbn())) { req.setStatus("已批准(已有)"); }
-            else {
-                Book newBook = new Book(); newBook.setIsbn(req.getIsbn()); newBook.setTitle(req.getTitle()); newBook.setAuthor(req.getAuthor());
-                newBook.setPublisher(req.getPublisher()); newBook.setPrice(req.getPrice()); newBook.setStatus("在库");
-                newBook.setCategory("荐购新书"); bookRepo.save(newBook); req.setStatus("已批准");
-            }
-        } else { req.setStatus("已驳回"); }
+            Book newBook = new Book();
+
+            // 生成自增ID
+            String nextId = generateNextBookId();
+            newBook.setBookId(nextId);
+
+            newBook.setIsbn(req.getIsbn());
+            newBook.setTitle(req.getTitle());
+            newBook.setAuthor(req.getAuthor());
+            newBook.setPublisher(req.getPublisher());
+            newBook.setPrice(req.getPrice());
+            newBook.setCategory("荐购新书");
+            newBook.setStatus("在库");
+
+            bookRepo.save(newBook);
+            req.setStatus("已批准");
+            message = "已批准并自动入库 (新书号: " + newBook.getBookId() + ")";
+        } else {
+            req.setStatus("已驳回");
+            message = "已驳回该请求";
+        }
+
         requestRepo.save(req);
-        return isApproved ? "已批准并自动入库" : "已驳回该请求";
+        return message;
+    }
+
+    private synchronized String generateNextBookId() {
+        String maxId = bookRepo.findMaxBookId();
+
+        if (maxId == null) {
+            return "B001";
+        }
+
+        try {
+            String numPart = maxId.substring(1);
+            int nextNum = Integer.parseInt(numPart) + 1;
+            return String.format("B%03d", nextNum);
+        } catch (NumberFormatException e) {
+            return "B" + System.currentTimeMillis();
+        }
     }
 }
